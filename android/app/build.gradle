@@ -66,6 +66,9 @@ android {
     }
 	signingConfigs {
 		release {}
+		if (System.getenv('CHIAKI_CI_DEBUG_KEYSTORE')) {
+			debug.storeFile = file(System.getenv('CHIAKI_CI_DEBUG_KEYSTORE'))
+		}
 	}
 
     buildTypes {
