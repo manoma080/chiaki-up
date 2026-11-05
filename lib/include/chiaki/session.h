@@ -209,6 +209,9 @@ typedef struct chiaki_session_t
 	void *event_cb_user;
 	ChiakiVideoSampleCallback video_sample_cb;
 	void *video_sample_cb_user;
+	// Opt in to header recovery; the query distinguishes requests from errors.
+	bool video_retry_profile_header;
+	bool (*video_header_requested_cb)(void *user);
 	ChiakiAudioSink audio_sink;
 	ChiakiAudioSink haptics_sink;
 

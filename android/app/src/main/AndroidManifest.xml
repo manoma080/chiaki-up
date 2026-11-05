@@ -37,6 +37,10 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".stream.FilterSampleActivity"
+            android:exported="false"
+            android:theme="@style/StreamTheme" />
+
         <activity
             android:name=".stream.StreamActivity"
             android:theme="@style/StreamTheme"

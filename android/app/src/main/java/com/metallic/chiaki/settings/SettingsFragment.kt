@@ -25,6 +25,15 @@ import androidx.core.view.WindowInsetsCompat
 
 class DataStore(val preferences: Preferences): PreferenceDataStore()
 {
+	private val filterKeys = setOf("filter_brightness", "filter_saturation", "filter_gamma", "filter_contrast", "filter_hue", "filter_sharpness")
+
+	override fun getInt(key: String?, defValue: Int): Int =
+		if (key in filterKeys) preferences.getFilterInt(key!!, defValue) else defValue
+
+	override fun putInt(key: String?, value: Int)
+	{
+		if (key in filterKeys) preferences.putFilterInt(key!!, value)
+	}
 	override fun getBoolean(key: String?, defValue: Boolean) = when(key)
 	{
 		preferences.logVerboseKey -> preferences.logVerbose

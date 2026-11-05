@@ -14,6 +14,7 @@ CHIAKI_EXPORT void chiaki_video_receiver_init(ChiakiVideoReceiver *video_receive
 	memset(video_receiver->profiles, 0, sizeof(video_receiver->profiles));
 	video_receiver->profiles_count = 0;
 	video_receiver->profile_cur = -1;
+	video_receiver->profile_header_pending = false;
 
 	video_receiver->frame_index_cur = -1;
 	video_receiver->frame_index_prev = -1;
@@ -75,7 +76,9 @@ CHIAKI_EXPORT void chiaki_video_receiver_av_packet(ChiakiVideoReceiver *video_re
 
 		ChiakiVideoProfile *profile = video_receiver->profiles + video_receiver->profile_cur;
 		CHIAKI_LOGI(video_receiver->log, "Switched to profile %d, resolution: %ux%u", video_receiver->profile_cur, profile->width, profile->height);
-		if(video_receiver->session->video_sample_cb)
+		if(video_receiver->session->video_retry_profile_header)
+			video_receiver->profile_header_pending = true;
+		else if(video_receiver->session->video_sample_cb)
 			video_receiver->session->video_sample_cb(profile->header, profile->header_sz, video_receiver->session->video_sample_cb_user);
 	}
 
@@ -137,9 +140,31 @@ static ChiakiErrorCode chiaki_video_receiver_flush_frame(ChiakiVideoReceiver *vi
 
 	if(video_receiver->session->video_sample_cb)
 	{
-		bool cb_succ = video_receiver->session->video_sample_cb(frame, frame_size, video_receiver->session->video_sample_cb_user);
+		bool cb_succ = true;
+		if(video_receiver->profile_header_pending)
+		{
+			ChiakiVideoProfile *profile = &video_receiver->profiles[video_receiver->profile_cur];
+			cb_succ = video_receiver->session->video_sample_cb(profile->header, profile->header_sz, video_receiver->session->video_sample_cb_user);
+			video_receiver->profile_header_pending = !cb_succ;
+		}
+		if(cb_succ)
+			cb_succ = video_receiver->session->video_sample_cb(frame, frame_size, video_receiver->session->video_sample_cb_user);
+		// Retry only an explicit header request, never an ordinary failure:
+		// a failed sample may already have been partially queued to the codec.
+		if(!cb_succ && video_receiver->session->video_retry_profile_header
+			&& video_receiver->session->video_header_requested_cb
+			&& video_receiver->session->video_header_requested_cb(video_receiver->session->video_sample_cb_user))
+		{
+			ChiakiVideoProfile *profile = &video_receiver->profiles[video_receiver->profile_cur];
+			cb_succ = video_receiver->session->video_sample_cb(profile->header, profile->header_sz, video_receiver->session->video_sample_cb_user);
+			video_receiver->profile_header_pending = !cb_succ;
+			if(cb_succ)
+				cb_succ = video_receiver->session->video_sample_cb(frame, frame_size, video_receiver->session->video_sample_cb_user);
+		}
 		if(!cb_succ)
 		{
+			if(video_receiver->session->video_retry_profile_header)
+				video_receiver->profile_header_pending = true;
 			succ = false;
 			CHIAKI_LOGW(video_receiver->log, "Video callback did not process frame successfully.");
 		}

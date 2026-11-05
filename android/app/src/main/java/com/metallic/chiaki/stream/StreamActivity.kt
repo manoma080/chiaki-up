@@ -95,8 +95,7 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 			showOverlay()
 		}
 
-		//viewModel.session.attachToTextureView(textureView)
-		viewModel.session.attachToSurfaceView(binding.surfaceView)
+		binding.surfaceView.onInputSurface = { viewModel.session.setVideoSurface(it) }
 		viewModel.session.state.observe(this, Observer { this.stateChanged(it) })
 		adjustStreamViewAspect()
 
@@ -135,14 +134,18 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 	override fun onResume()
 	{
 		super.onResume()
+		if (!::viewModel.isInitialized) return
 		hideSystemUI()
+		binding.surfaceView.resumeVideo()
 		viewModel.session.resume()
 	}
 
 	override fun onPause()
 	{
 		super.onPause()
+		if (!::viewModel.isInitialized) return
 		viewModel.session.pause()
+		binding.surfaceView.pauseVideo()
 	}
 
 	override fun onDestroy()

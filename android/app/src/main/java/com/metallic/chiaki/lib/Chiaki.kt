@@ -343,6 +343,7 @@ class Session(connectInfo: ConnectInfo, logFile: String?, logVerbose: Boolean)
 	fun start() = ErrorCode(ChiakiNative.sessionStart(nativePtr))
 	fun stop() = ErrorCode(ChiakiNative.sessionStop(nativePtr))
 
+	@Synchronized
 	fun dispose()
 	{
 		if(nativePtr == 0L)
@@ -377,9 +378,11 @@ class Session(connectInfo: ConnectInfo, logFile: String?, logVerbose: Boolean)
 		event(RumbleEvent(left.toUByte(), right.toUByte()))
 	}
 
+	@Synchronized
 	fun setSurface(surface: Surface?)
 	{
-		ChiakiNative.sessionSetSurface(nativePtr, surface)
+		if(nativePtr != 0L)
+			ChiakiNative.sessionSetSurface(nativePtr, surface)
 	}
 
 	fun setControllerState(controllerState: ControllerState)
