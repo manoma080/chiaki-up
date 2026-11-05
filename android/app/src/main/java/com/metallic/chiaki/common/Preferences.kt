@@ -49,6 +49,11 @@ class Preferences(context: Context)
 	}
 
 	private val sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context)
+
+	fun getFilterInt(key: String, defaultValue: Int): Int =
+		try { sharedPreferences.getInt(key, defaultValue) } catch (_: ClassCastException) { defaultValue }
+
+	fun putFilterInt(key: String, value: Int) { sharedPreferences.edit().putInt(key, value).apply() }
 	private val sharedPreferenceChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
 		when(key)
 		{
