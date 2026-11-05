@@ -133,6 +133,14 @@ class StreamInput(val context: Context, val preferences: Preferences)
 		controllerStateChangedCallback?.let { it(controllerState) }
 	}
 
+	fun releaseControls()
+	{
+		keyControllerState = ControllerState()
+		motionControllerState = ControllerState()
+		touchControllerState = ControllerState()
+		controllerStateUpdated()
+	}
+
 	fun dispatchKeyEvent(event: KeyEvent): Boolean
 	{
 		if (filterInputBlocked) return false
