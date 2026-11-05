@@ -11,7 +11,7 @@ def check_output(output):
     counts = re.findall(r'^Number of signers: (\d+)\s*$', output, re.MULTILINE)
     digests = re.findall(r'^Signer #\d+ certificate SHA-256 digest: ([0-9a-fA-F]+)\s*$', output, re.MULTILINE)
     if counts != ['1'] or [s.lower() for s in digests] != [EXPECTED]:
-        raise ValueError('APK must have exactly one signer with the expected SHA-256 certificate')
+        raise ValueError(f'APK must have exactly one signer with the expected SHA-256 certificate; counts={counts}, digests={digests}')
 
 
 if __name__ == '__main__':

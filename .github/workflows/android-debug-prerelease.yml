@@ -11,6 +11,9 @@ permissions: {}
 jobs:
   build:
     runs-on: ubuntu-24.04
+    env:
+      ANDROID_USER_HOME: ${{ runner.temp }}/chiaki-android
+      CHIAKI_CI_DEBUG_KEYSTORE: ${{ runner.temp }}/chiaki-android/debug.keystore
     permissions:
       contents: read
     steps:
@@ -55,7 +58,7 @@ jobs:
           secret = os.environ.pop('CHIAKI_DEBUG_KEYSTORE_BASE64')
           if not secret:
               raise RuntimeError('Missing debug keystore secret')
-          path = Path.home() / '.android' / 'debug.keystore'
+          path = Path(os.environ['ANDROID_USER_HOME']) / 'debug.keystore'
           path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
           with path.open('xb') as keystore:
               keystore.write(base64.b64decode(secret, validate=True))
