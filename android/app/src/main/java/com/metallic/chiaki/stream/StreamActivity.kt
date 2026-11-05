@@ -9,6 +9,7 @@ import android.graphics.Matrix
 import android.os.*
 import android.view.*
 import android.widget.EditText
+import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
@@ -29,6 +30,12 @@ import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.rxkotlin.addTo
 import kotlin.math.min
 
+// Keep the settings overlay available, but let the next A press reach the game.
+internal fun returnFocusToGameplay(root: ViewGroup) {
+	root.isFocusableInTouchMode = true
+	root.requestFocus()
+}
+
 private sealed class DialogContents
 private object StreamQuitDialog: DialogContents()
 private object CreateErrorDialog: DialogContents()
@@ -40,12 +47,39 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 	{
 		const val EXTRA_CONNECT_INFO = "connect_info"
 		private const val HIDE_UI_TIMEOUT_MS = 2000L
+		private const val FILTER_SHORTCUT_HOLD_MS = 1500L
 	}
 
 	private lateinit var viewModel: StreamViewModel
 	private lateinit var binding: ActivityStreamBinding
+	private lateinit var filterOverlay: FilterOverlay
 
 	private val uiVisibilityHandler = Handler()
+	private var shortcutDeviceId: Int? = null
+	private val openFilterShortcut = Runnable {
+		if (shortcutDeviceId != null && ::filterOverlay.isInitialized && !filterOverlay.isVisible) {
+			showOverlay()
+			binding.filterButton.performClick()
+		}
+	}
+
+	private fun cancelFilterShortcut() {
+		uiVisibilityHandler.removeCallbacks(openFilterShortcut)
+		shortcutDeviceId = null
+	}
+
+	private fun trackFilterShortcut(event: KeyEvent) {
+		if (event.keyCode != KeyEvent.KEYCODE_BUTTON_SELECT) return
+		if (event.action == KeyEvent.ACTION_UP && shortcutDeviceId == event.deviceId) {
+			cancelFilterShortcut()
+		} else if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 &&
+			shortcutDeviceId == null &&
+			::filterOverlay.isInitialized && !filterOverlay.isVisible &&
+			(event.isFromSource(InputDevice.SOURCE_GAMEPAD) || event.isFromSource(InputDevice.SOURCE_JOYSTICK))) {
+			shortcutDeviceId = event.deviceId
+			uiVisibilityHandler.postDelayed(openFilterShortcut, FILTER_SHORTCUT_HOLD_MS)
+		}
+	}
 
 	override fun onCreate(savedInstanceState: Bundle?)
 	{
@@ -67,6 +101,30 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 
 		binding = ActivityStreamBinding.inflate(layoutInflater)
 		setContentView(binding.root)
+		val modal = FrameLayout(this).apply { visibility = View.GONE; isClickable = true }
+		// The input belongs to a retained ViewModel; this new overlay starts hidden.
+		viewModel.input.setFilterInputBlocked(false)
+		filterOverlay = FilterOverlay(this) {
+			modal.visibility = View.GONE
+			viewModel.input.setFilterInputBlocked(false)
+			returnFocusToGameplay(binding.root)
+			showOverlay()
+		}
+		modal.addView(filterOverlay, FrameLayout.LayoutParams(
+			(320 * resources.displayMetrics.density).toInt(),
+			FrameLayout.LayoutParams.MATCH_PARENT, Gravity.END))
+		binding.root.addView(modal, FrameLayout.LayoutParams(-1, -1))
+		binding.filterButton.setOnClickListener {
+			uiVisibilityHandler.removeCallbacks(hideSystemUIRunnable)
+			viewModel.input.setFilterInputBlocked(true)
+			supportFragmentManager.fragments.filterIsInstance<TouchControlsFragment>().forEach { it.releaseControls() }
+			val now = android.os.SystemClock.uptimeMillis()
+			val cancel = MotionEvent.obtain(now, now, MotionEvent.ACTION_CANCEL, 0f, 0f, 0)
+			window.decorView.dispatchTouchEvent(cancel)
+			cancel.recycle()
+			modal.visibility = View.VISIBLE
+			filterOverlay.show()
+		}
 		window.decorView.setOnSystemUiVisibilityChangeListener(this)
 
 		viewModel.onScreenControlsEnabled.observe(this, Observer {
@@ -149,6 +207,7 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 
 	override fun onPause()
 	{
+		cancelFilterShortcut()
 		super.onPause()
 		if (!::viewModel.isInitialized) return
 		supportFragmentManager.fragments.filterIsInstance<TouchControlsFragment>().forEach { it.releaseControls() }
@@ -178,7 +237,10 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 		viewModel.session.resume()
 	}
 
-	private val hideSystemUIRunnable = Runnable { hideSystemUI() }
+	private val hideSystemUIRunnable = Runnable {
+		hideSystemUI()
+		hideOverlay()
+	}
 
 	override fun onSystemUiVisibilityChange(visibility: Int)
 	{
@@ -206,6 +268,7 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 
 	private fun hideOverlay()
 	{
+		if (::filterOverlay.isInitialized && filterOverlay.isVisible) return
 		binding.overlay.animate()
 			.alpha(0.0f)
 			.setListener(object: AnimatorListenerAdapter()
@@ -220,6 +283,7 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 	override fun onWindowFocusChanged(hasFocus: Boolean)
 	{
 		super.onWindowFocusChanged(hasFocus)
+		if (!hasFocus) cancelFilterShortcut()
 		if(hasFocus)
 			hideSystemUI()
 		else if(::viewModel.isInitialized)
@@ -231,6 +295,7 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 
 	private fun hideSystemUI()
 	{
+		if (::filterOverlay.isInitialized && filterOverlay.isVisible) return
 		window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_IMMERSIVE
 				or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
 				or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
@@ -363,8 +428,30 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 
 	private fun adjustStreamViewAspect() = adjustSurfaceViewAspect()
 
-	override fun dispatchKeyEvent(event: KeyEvent) = viewModel.input.dispatchKeyEvent(event) || super.dispatchKeyEvent(event)
-	override fun onGenericMotionEvent(event: MotionEvent) = viewModel.input.onGenericMotionEvent(event) || super.onGenericMotionEvent(event)
+	override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+		trackFilterShortcut(event)
+		if (::filterOverlay.isInitialized && filterOverlay.isVisible) {
+			if (event.keyCode == KeyEvent.KEYCODE_BACK || event.keyCode == KeyEvent.KEYCODE_BUTTON_B) {
+				if (event.action == KeyEvent.ACTION_UP) filterOverlay.close()
+				return true
+			}
+			super.dispatchKeyEvent(event)
+			return true
+		}
+		if (::binding.isInitialized && binding.filterButton.isShown && binding.filterButton.hasFocus() &&
+			event.keyCode == KeyEvent.KEYCODE_BUTTON_A)
+			return super.dispatchKeyEvent(event)
+		return (::viewModel.isInitialized && viewModel.input.dispatchKeyEvent(event)) || super.dispatchKeyEvent(event)
+	}
+	override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
+		if (::filterOverlay.isInitialized && filterOverlay.isVisible) {
+			super.dispatchGenericMotionEvent(event)
+			return true
+		}
+		return super.dispatchGenericMotionEvent(event)
+	}
+	override fun onGenericMotionEvent(event: MotionEvent) =
+		(::viewModel.isInitialized && viewModel.input.onGenericMotionEvent(event)) || super.onGenericMotionEvent(event)
 }
 
 enum class TransformMode

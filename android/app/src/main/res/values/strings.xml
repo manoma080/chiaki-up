@@ -63,6 +63,9 @@
     <string name="preferences_category_title_general">General</string>
     <string name="preferences_category_title_stream">Stream</string>
     <string name="preferences_category_title_video_filter">Video filter</string>
+    <string name="filter_open">Filters</string>
+    <string name="filter_reset_all">Reset all</string>
+    <string name="filter_close">Close</string>
     <string name="preferences_filter_brightness_title">Brightness</string>
     <string name="preferences_filter_saturation_title">Saturation</string>
     <string name="preferences_filter_gamma_title">Gamma</string>

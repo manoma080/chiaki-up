@@ -43,13 +43,14 @@ class StreamInput(val context: Context, val preferences: Preferences)
 		return controllerState or touchControllerState
 	}
 
-	private val sensorControllerState = ControllerState() // from Motion Sensors
+	private var sensorControllerState = ControllerState() // from Motion Sensors
 	private var keyControllerState = ControllerState() // from KeyEvents
 	private var motionControllerState = ControllerState() // from MotionEvents
+	private var filterInputBlocked = false
 	var touchControllerState = ControllerState()
 		set(value)
 		{
-			field = value
+			field = if (filterInputBlocked) ControllerState() else value
 			controllerStateUpdated()
 		}
 
@@ -58,6 +59,7 @@ class StreamInput(val context: Context, val preferences: Preferences)
 	private val sensorEventListener = object: SensorEventListener {
 		override fun onSensorChanged(event: SensorEvent)
 		{
+			if (filterInputBlocked) return
 			when(event.sensor.type)
 			{
 				Sensor.TYPE_ACCELEROMETER -> {
@@ -109,6 +111,17 @@ class StreamInput(val context: Context, val preferences: Preferences)
 		}
 	}
 
+	fun setFilterInputBlocked(blocked: Boolean)
+	{
+		filterInputBlocked = blocked
+		if (blocked) {
+			sensorControllerState = ControllerState()
+			keyControllerState = ControllerState()
+			motionControllerState = ControllerState()
+			touchControllerState = ControllerState()
+		}
+	}
+
 	fun observe(lifecycleOwner: LifecycleOwner)
 	{
 		if(preferences.motionEnabled)
@@ -130,6 +143,7 @@ class StreamInput(val context: Context, val preferences: Preferences)
 
 	fun dispatchKeyEvent(event: KeyEvent): Boolean
 	{
+		if (filterInputBlocked) return false
 		//Log.i("StreamSession", "key event $event")
 		if(event.action != KeyEvent.ACTION_DOWN && event.action != KeyEvent.ACTION_UP)
 			return false
@@ -183,6 +197,7 @@ class StreamInput(val context: Context, val preferences: Preferences)
 
 	fun onGenericMotionEvent(event: MotionEvent): Boolean
 	{
+		if (filterInputBlocked) return false
 		if(event.source and InputDevice.SOURCE_CLASS_JOYSTICK != InputDevice.SOURCE_CLASS_JOYSTICK)
 			return false
 		fun Float.signedAxis() = (this * Short.MAX_VALUE).toInt().toShort()
