@@ -31,7 +31,7 @@ class TouchpadView @JvmOverloads constructor(
 	private val drawableIdle: Drawable?
 	private val drawablePressed: Drawable?
 
-	private val state: ControllerState = ControllerState()
+	private var state: ControllerState = ControllerState()
 
 	inner class Touch(
 		val stateId: UByte,
@@ -75,6 +75,17 @@ class TouchpadView @JvmOverloads constructor(
 
 	private var buttonHeld = false
 
+	fun releaseControls()
+	{
+		pointerTouches.values.forEach { removeCallbacks(it.startButtonHoldRunnable) }
+		removeCallbacks(shortButtonPressLiftRunnable)
+		pointerTouches.clear()
+		shortPressingTouches = listOf()
+		buttonHeld = false
+		state = ControllerState()
+		triggerStateChanged()
+	}
+
 	init
 	{
 		context.theme.obtainStyledAttributes(attrs, R.styleable.TouchpadView, 0, 0).apply {
@@ -107,6 +118,7 @@ class TouchpadView @JvmOverloads constructor(
 	{
 		when(event.actionMasked)
 		{
+			MotionEvent.ACTION_CANCEL -> releaseControls()
 			MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
 				state.startTouch(touchX(event, event.actionIndex), touchY(event, event.actionIndex))?.let {
 					haptics.trigger()
