@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master-mano
+      - ci/persistent-debug-signing
 
 permissions: {}
 
@@ -42,8 +43,32 @@ jobs:
             'ndk;29.0.14206865' 'cmake;3.22.1'
 
       - name: Build debug APK
+        env:
+          CHIAKI_DEBUG_KEYSTORE_BASE64: ${{ secrets.CHIAKI_DEBUG_KEYSTORE_BASE64 }}
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon --max-workers=2
+        run: |
+          set -eu
+          umask 077
+          python3 - <<'PY'
+          import base64, os
+          from pathlib import Path
+          secret = os.environ.pop('CHIAKI_DEBUG_KEYSTORE_BASE64')
+          if not secret:
+              raise RuntimeError('Missing debug keystore secret')
+          path = Path.home() / '.android' / 'debug.keystore'
+          path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+          with path.open('xb') as keystore:
+              keystore.write(base64.b64decode(secret, validate=True))
+          PY
+          unset CHIAKI_DEBUG_KEYSTORE_BASE64
+          ./gradlew assembleDebug --no-daemon --max-workers=2
+
+      - name: Verify APK signing certificate
+        run: |
+          python3 -m unittest discover -s android/tests -p test_ci_signing.py
+          python3 .github/scripts/verify_android_signing.py \
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
+            android/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Save APK for release
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -53,6 +78,7 @@ jobs:
           if-no-files-found: error
 
   release:
+    if: github.ref == 'refs/heads/master-mano'
     needs: build
     runs-on: ubuntu-24.04
     permissions:
@@ -75,5 +101,5 @@ jobs:
           gh release create "$tag" app-debug.apk \
             --target "$COMMIT_SHA" \
             --title "Android debug ${RUN_ID}.${RUN_ATTEMPT}" \
-            --notes "Debug APK built from commit ${COMMIT_SHA}. Debug signing keys may differ between runs." \
+            --notes "Debug APK built from commit ${COMMIT_SHA} using the verified persistent debug signing certificate." \
             --prerelease
