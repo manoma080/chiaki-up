@@ -11,9 +11,7 @@ permissions: {}
 jobs:
   build:
     runs-on: ubuntu-24.04
-    env:
-      ANDROID_USER_HOME: ${{ runner.temp }}/chiaki-android
-      CHIAKI_CI_DEBUG_KEYSTORE: ${{ runner.temp }}/chiaki-android/debug.keystore
+
     permissions:
       contents: read
     steps:
@@ -48,6 +46,8 @@ jobs:
       - name: Build debug APK
         env:
           CHIAKI_DEBUG_KEYSTORE_BASE64: ${{ secrets.CHIAKI_DEBUG_KEYSTORE_BASE64 }}
+          ANDROID_USER_HOME: ${{ runner.temp }}/chiaki-android
+          CHIAKI_CI_DEBUG_KEYSTORE: ${{ runner.temp }}/chiaki-android/debug.keystore
         working-directory: android
         run: |
           set -eu
