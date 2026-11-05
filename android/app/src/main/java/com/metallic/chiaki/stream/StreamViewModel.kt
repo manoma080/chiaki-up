@@ -16,7 +16,6 @@ class StreamViewModel(val application: Application, val connectInfo: ConnectInfo
 	val preferences = Preferences(application)
 	val logManager = LogManager(application)
 
-	private var _session: StreamSession? = null
 	val input = StreamInput(application, preferences)
 	val session = StreamSession(connectInfo, logManager, preferences.logVerbose, input)
 
@@ -29,7 +28,7 @@ class StreamViewModel(val application: Application, val connectInfo: ConnectInfo
 	override fun onCleared()
 	{
 		super.onCleared()
-		_session?.shutdown()
+		session.shutdown()
 	}
 
 	fun setOnScreenControlsEnabled(enabled: Boolean)

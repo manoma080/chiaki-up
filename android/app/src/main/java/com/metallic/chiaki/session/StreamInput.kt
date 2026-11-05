@@ -44,8 +44,8 @@ class StreamInput(val context: Context, val preferences: Preferences)
 	}
 
 	private val sensorControllerState = ControllerState() // from Motion Sensors
-	private val keyControllerState = ControllerState() // from KeyEvents
-	private val motionControllerState = ControllerState() // from MotionEvents
+	private var keyControllerState = ControllerState() // from KeyEvents
+	private var motionControllerState = ControllerState() // from MotionEvents
 	var touchControllerState = ControllerState()
 		set(value)
 		{
@@ -118,6 +118,14 @@ class StreamInput(val context: Context, val preferences: Preferences)
 	private fun controllerStateUpdated()
 	{
 		controllerStateChangedCallback?.let { it(controllerState) }
+	}
+
+	fun releaseControls()
+	{
+		keyControllerState = ControllerState()
+		motionControllerState = ControllerState()
+		touchControllerState = ControllerState()
+		controllerStateUpdated()
 	}
 
 	fun dispatchKeyEvent(event: KeyEvent): Boolean

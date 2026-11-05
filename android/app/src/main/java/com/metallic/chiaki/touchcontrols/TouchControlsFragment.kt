@@ -37,12 +37,23 @@ abstract class TouchControlsFragment : Fragment()
 		controllerStateProxy.flatMap { it }
 
 	var onScreenControlsEnabled: LiveData<Boolean>? = null
+
+	open fun releaseControls()
+	{
+		ownControllerState = ControllerState()
+	}
 }
 
 class DefaultTouchControlsFragment : TouchControlsFragment()
 {
 	private var _binding: FragmentControlsBinding? = null
 	private val binding get() = _binding!!
+
+	override fun releaseControls()
+	{
+		super.releaseControls()
+		_binding?.touchpadView?.releaseControls()
+	}
 
 	override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View =
 		FragmentControlsBinding.inflate(inflater, container, false).let {

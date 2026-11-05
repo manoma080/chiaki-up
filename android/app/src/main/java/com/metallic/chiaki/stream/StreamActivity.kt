@@ -61,6 +61,7 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 		viewModel = ViewModelProvider(this, viewModelFactory {
 			StreamViewModel(application, connectInfo)
 		})[StreamViewModel::class.java]
+		supportFragmentManager.fragments.forEach { bindControls(it) }
 
 		viewModel.input.observe(this)
 
@@ -120,10 +121,16 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 	override fun onAttachFragment(fragment: Fragment)
 	{
 		super.onAttachFragment(fragment)
+		if(!::viewModel.isInitialized) return
+		bindControls(fragment)
+	}
+
+	private fun bindControls(fragment: Fragment)
+	{
 		if(fragment is TouchControlsFragment)
 		{
 			fragment.controllerState
-				.subscribe { viewModel.input.touchControllerState = it }
+				.subscribe { if(hasWindowFocus()) viewModel.input.touchControllerState = it }
 				.addTo(controlsDisposable)
 			fragment.onScreenControlsEnabled = viewModel.onScreenControlsEnabled
 			if(fragment is TouchpadOnlyFragment)
@@ -144,13 +151,24 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 	{
 		super.onPause()
 		if (!::viewModel.isInitialized) return
-		viewModel.session.pause()
+		supportFragmentManager.fragments.filterIsInstance<TouchControlsFragment>().forEach { it.releaseControls() }
+		viewModel.input.releaseControls()
 		binding.surfaceView.pauseVideo()
+	}
+
+	override fun onStop()
+	{
+		super.onStop()
+		// A configuration change retains the ViewModel and its connection. A truly
+		// backgrounded activity still disconnects, as it did before.
+		if (::viewModel.isInitialized && !isChangingConfigurations)
+			viewModel.session.pause()
 	}
 
 	override fun onDestroy()
 	{
 		super.onDestroy()
+		uiVisibilityHandler.removeCallbacks(hideSystemUIRunnable)
 		controlsDisposable.dispose()
 	}
 
@@ -204,6 +222,11 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 		super.onWindowFocusChanged(hasFocus)
 		if(hasFocus)
 			hideSystemUI()
+		else if(::viewModel.isInitialized)
+		{
+			supportFragmentManager.fragments.filterIsInstance<TouchControlsFragment>().forEach { it.releaseControls() }
+			viewModel.input.releaseControls()
+		}
 	}
 
 	private fun hideSystemUI()

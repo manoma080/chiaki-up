@@ -18,6 +18,12 @@ class TouchpadOnlyFragment : TouchControlsFragment()
 	private var _binding: FragmentTouchpadOnlyBinding? = null
 	private val binding get() = _binding!!
 
+	override fun releaseControls()
+	{
+		super.releaseControls()
+		_binding?.touchpadView?.releaseControls()
+	}
+
 	override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View =
 		FragmentTouchpadOnlyBinding.inflate(inflater, container, false).let {
 			_binding = it
