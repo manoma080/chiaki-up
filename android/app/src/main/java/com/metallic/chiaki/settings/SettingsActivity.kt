@@ -48,6 +48,10 @@ class SettingsActivity: AppCompatActivity(), PreferenceFragmentCompat.OnPreferen
 			replaceFragment(SettingsRegisteredHostsFragment(), true)
 			true
 		}
+		SettingsVideoFiltersFragment::class.java.canonicalName -> {
+			replaceFragment(SettingsVideoFiltersFragment(), true)
+			true
+		}
 		else -> false
 	}
 

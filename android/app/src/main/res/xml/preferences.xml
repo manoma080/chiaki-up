@@ -76,60 +76,7 @@
             app:title="@string/preferences_codec_title"
             app:summary="%s"
             app:icon="@drawable/ic_codec"/>
-    </PreferenceCategory>
-
-    <PreferenceCategory
-        app:key="category_video_filter"
-        app:title="@string/preferences_category_title_video_filter">
-
-        <SeekBarPreference
-            app:key="filter_brightness"
-            app:title="@string/preferences_filter_brightness_title"
-            app:min="-100"
-            android:max="100"
-            android:defaultValue="0"
-            app:showSeekBarValue="true" />
-
-        <SeekBarPreference
-            app:key="filter_saturation"
-            app:title="@string/preferences_filter_saturation_title"
-            app:min="-100"
-            android:max="100"
-            android:defaultValue="0"
-            app:showSeekBarValue="true" />
-
-        <SeekBarPreference
-            app:key="filter_gamma"
-            app:title="@string/preferences_filter_gamma_title"
-            app:min="-100"
-            android:max="100"
-            android:defaultValue="0"
-            app:showSeekBarValue="true" />
-
-        <SeekBarPreference
-            app:key="filter_contrast"
-            app:title="@string/preferences_filter_contrast_title"
-            app:min="-100"
-            android:max="100"
-            android:defaultValue="0"
-            app:showSeekBarValue="true" />
-
-        <SeekBarPreference
-            app:key="filter_hue"
-            app:title="@string/preferences_filter_hue_title"
-            app:min="-100"
-            android:max="100"
-            android:defaultValue="0"
-            app:showSeekBarValue="true" />
-
-        <SeekBarPreference
-            app:key="filter_sharpness"
-            app:title="@string/preferences_filter_sharpness_title"
-            app:min="-5"
-            android:max="5"
-            android:defaultValue="0"
-            app:showSeekBarValue="true" />
-
+        <Preference app:key="video_filters" app:title="@string/preferences_category_title_video_filter" app:fragment="com.gameblabla.chiaki.settings.SettingsVideoFiltersFragment" app:icon="@drawable/ic_codec"/>
     </PreferenceCategory>
 
     <PreferenceCategory
