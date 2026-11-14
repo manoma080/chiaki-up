@@ -159,6 +159,7 @@ class FilterOverlay(context: Context, private val onClosed: () -> Unit) : Scroll
     fun close() { visibility = View.GONE; onClosed() }
 
     fun show() {
+        refreshPresets()
         specs.forEachIndexed { index, spec ->
             sliders[index].progress = preferences.getFilterInt(spec.key, 0).coerceIn(-spec.range, spec.range) + spec.range
         }

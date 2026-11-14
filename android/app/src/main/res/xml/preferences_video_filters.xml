@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:android="http://schemas.android.com/apk/res/android">
+        <SeekBarPreference
+            app:key="filter_brightness"
+            app:title="@string/preferences_filter_brightness_title"
+            app:min="-100"
+            android:max="100"
+            android:defaultValue="0"
+            app:showSeekBarValue="true" />
+
+        <SeekBarPreference
+            app:key="filter_saturation"
+            app:title="@string/preferences_filter_saturation_title"
+            app:min="-100"
+            android:max="100"
+            android:defaultValue="0"
+            app:showSeekBarValue="true" />
+
+        <SeekBarPreference
+            app:key="filter_gamma"
+            app:title="@string/preferences_filter_gamma_title"
+            app:min="-100"
+            android:max="100"
+            android:defaultValue="0"
+            app:showSeekBarValue="true" />
+
+        <SeekBarPreference
+            app:key="filter_contrast"
+            app:title="@string/preferences_filter_contrast_title"
+            app:min="-100"
+            android:max="100"
+            android:defaultValue="0"
+            app:showSeekBarValue="true" />
+
+        <SeekBarPreference
+            app:key="filter_hue"
+            app:title="@string/preferences_filter_hue_title"
+            app:min="-100"
+            android:max="100"
+            android:defaultValue="0"
+            app:showSeekBarValue="true" />
+
+        <SeekBarPreference
+            app:key="filter_sharpness"
+            app:title="@string/preferences_filter_sharpness_title"
+            app:min="-5"
+            android:max="5"
+            android:defaultValue="0"
+            app:showSeekBarValue="true" />
+
+    <Preference app:key="save_filter_preset" app:title="@string/filter_save_preset"/>
+    <Preference app:key="reset_filters" app:title="@string/filter_reset_all"/>
+    <PreferenceCategory app:key="filter_presets" app:title="@string/filter_presets_title"/>
+</PreferenceScreen>

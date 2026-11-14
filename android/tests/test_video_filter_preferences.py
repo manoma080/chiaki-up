@@ -9,12 +9,9 @@ ANDROID = '{http://schemas.android.com/apk/res/android}'
 
 class VideoFilterPreferencesTest(unittest.TestCase):
     def test_filter_sliders_have_persisted_integer_ranges_and_labels(self):
-        root = ET.parse(RES / 'xml/preferences.xml').getroot()
+        root = ET.parse(RES / 'xml/preferences_video_filters.xml').getroot()
         strings = {s.get('name'): s.text for s in ET.parse(RES / 'values/strings.xml').getroot().findall('string')}
-        category = next((c for c in root.findall('PreferenceCategory')
-                         if c.get(APP + 'key') == 'category_video_filter'), None)
-        self.assertIsNotNone(category, 'Video filter category is missing')
-        self.assertEqual(strings[category.get(APP + 'title').removeprefix('@string/')], 'Video filter')
+        category = root
         sliders = {p.get(APP + 'key'): p for p in category.findall('SeekBarPreference')}
         expected = {'filter_' + name: name.title() for name in
                     ('brightness', 'saturation', 'gamma', 'contrast', 'hue', 'sharpness')}

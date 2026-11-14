@@ -67,6 +67,7 @@
     <string name="filter_reset_all">Reset all</string>
     <string name="filter_close">Close</string>
     <string name="filter_save_preset">Save preset</string>
+    <string name="filter_presets_title">Presets</string>
     <string name="filter_preset_name">Preset name</string>
     <string name="filter_preset_name_required">Enter a preset name</string>
     <string name="filter_preset_overwrite_confirm">Overwrite preset “%1$s”?</string>

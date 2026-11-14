@@ -33,19 +33,26 @@ class SettingsActivity: AppCompatActivity(), PreferenceFragmentCompat.OnPreferen
 		title = ""
 		setSupportActionBar(binding.toolbar)
 
-		val rootFragment = SettingsFragment()
-		replaceFragment(rootFragment, false)
-		supportFragmentManager.addOnBackStackChangedListener {
-			val titleFragment = supportFragmentManager.findFragmentById(R.id.settingsFragment) as? TitleFragment ?: return@addOnBackStackChangedListener
-			binding.titleTextView.text = titleFragment.getTitle(resources)
-		}
-		binding.titleTextView.text = rootFragment.getTitle(resources)
+		if(savedInstanceState == null)
+			replaceFragment(SettingsFragment(), false)
+		supportFragmentManager.addOnBackStackChangedListener { updateTitle() }
+		updateTitle()
+	}
+
+	private fun updateTitle()
+	{
+		val titleFragment = supportFragmentManager.findFragmentById(R.id.settingsFragment) as? TitleFragment
+		binding.titleTextView.text = titleFragment?.getTitle(resources) ?: getString(R.string.title_settings)
 	}
 
 	override fun onPreferenceStartFragment(caller: PreferenceFragmentCompat, pref: Preference) = when(pref.fragment)
 	{
 		SettingsRegisteredHostsFragment::class.java.canonicalName -> {
 			replaceFragment(SettingsRegisteredHostsFragment(), true)
+			true
+		}
+		SettingsVideoFiltersFragment::class.java.canonicalName -> {
+			replaceFragment(SettingsVideoFiltersFragment(), true)
 			true
 		}
 		else -> false
