@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: LicenseRef-AGPL-3.0-only-OpenSSL
 package com.gameblabla.chiaki.stream
 
+import android.app.AlertDialog
 import android.content.Context
+import android.text.InputType
+import android.widget.EditText
 import android.graphics.Color
 
 import android.view.View
@@ -26,6 +29,8 @@ class FilterOverlay(context: Context, private val onClosed: () -> Unit) : Scroll
     )
     private val preferences = Preferences(context)
     private val sliders = mutableListOf<SeekBar>()
+    private val presetStore = FilterPresetStore(context)
+    private lateinit var presetContainer: LinearLayout
 
     init {
         visibility = View.GONE
@@ -60,6 +65,13 @@ class FilterOverlay(context: Context, private val onClosed: () -> Unit) : Scroll
             column.addView(seek)
             sliders.add(seek)
         }
+        presetContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        column.addView(presetContainer)
+        refreshPresets()
+        column.addView(Button(context).apply {
+            setText(R.string.filter_save_preset)
+            setOnClickListener { showSaveDialog() }
+        })
         column.addView(Button(context).apply {
             setText(R.string.filter_reset_all)
             setOnClickListener {
@@ -73,6 +85,75 @@ class FilterOverlay(context: Context, private val onClosed: () -> Unit) : Scroll
             setText(R.string.filter_close)
             setOnClickListener { close() }
         })
+    }
+
+    private fun refreshPresets() {
+        presetContainer.removeAllViews()
+        presetStore.names().forEach { name ->
+            presetContainer.addView(Button(context).apply {
+                text = name
+                isAllCaps = false
+                setOnClickListener {
+                    val values = presetStore.load(name) ?: return@setOnClickListener
+                    specs.forEachIndexed { index, spec ->
+                        val value = (values[spec.key] ?: 0).coerceIn(-spec.range, spec.range)
+                        preferences.putFilterInt(spec.key, value)
+                        sliders[index].progress = value + spec.range
+                    }
+                }
+                setOnLongClickListener {
+                    AlertDialog.Builder(context)
+                        .setMessage(context.getString(R.string.filter_preset_delete_confirm, name))
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .setPositiveButton(R.string.filter_preset_delete) { _, _ ->
+                            presetStore.delete(name)
+                            refreshPresets()
+                        }.show()
+                    true
+                }
+            })
+        }
+    }
+
+    private fun showSaveDialog() {
+        val input = EditText(context).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            hint = context.getString(R.string.filter_preset_name)
+            setSingleLine()
+        }
+        val dialog = AlertDialog.Builder(context)
+            .setTitle(R.string.filter_save_preset)
+            .setView(input)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.filter_save_preset, null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val name = input.text.toString()
+                if (name.isBlank()) {
+                    input.error = context.getString(R.string.filter_preset_name_required)
+                } else {
+                    val values = specs.associate { spec ->
+                        spec.key to preferences.getFilterInt(spec.key, 0).coerceIn(-spec.range, spec.range)
+                    }
+                    if (name in presetStore.names()) {
+                        AlertDialog.Builder(context)
+                            .setMessage(context.getString(R.string.filter_preset_overwrite_confirm, name))
+                            .setNegativeButton(android.R.string.cancel, null)
+                            .setPositiveButton(R.string.filter_preset_overwrite) { _, _ ->
+                                presetStore.save(name, values)
+                                refreshPresets()
+                                dialog.dismiss()
+                            }.show()
+                    } else {
+                        presetStore.save(name, values)
+                        refreshPresets()
+                        dialog.dismiss()
+                    }
+                }
+            }
+        }
+        dialog.show()
     }
 
     fun close() { visibility = View.GONE; onClosed() }
