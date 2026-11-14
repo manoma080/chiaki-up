@@ -63,11 +63,8 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 		override fun onInputDeviceChanged(deviceId: Int) = updateController(deviceId)
 		override fun onInputDeviceRemoved(deviceId: Int) {
 			if (shortcutDeviceId == deviceId) cancelFilterShortcut()
-			val wasDisconnected = controllers.isDisconnected
 			controllers.remove(deviceId)
-			if (!wasDisconnected && controllers.isDisconnected) {
-				viewModel.input.releaseGamepadControls()
-			}
+			viewModel.input.releaseGamepadControls(deviceId)
 		}
 	}
 
@@ -292,12 +289,16 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 		hideOverlay()
 	}
 
+	private val overlayVisibilityPolicy by lazy {
+		OverlayVisibilityPolicy(::showOverlay, ::hideOverlay) {
+			uiVisibilityHandler.removeCallbacks(hideSystemUIRunnable)
+			uiVisibilityHandler.postDelayed(hideSystemUIRunnable, HIDE_UI_TIMEOUT_MS)
+		}
+	}
+
 	override fun onSystemUiVisibilityChange(visibility: Int)
 	{
-		if(visibility and View.SYSTEM_UI_FLAG_FULLSCREEN == 0)
-			showOverlay()
-		else
-			hideOverlay()
+		overlayVisibilityPolicy.systemUiChanged(visibility and View.SYSTEM_UI_FLAG_FULLSCREEN != 0)
 	}
 
 	private fun showOverlay()
@@ -479,6 +480,27 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 
 	private fun adjustStreamViewAspect() = adjustSurfaceViewAspect()
 
+	override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+		val result = super.dispatchTouchEvent(event)
+		// A touch after the user reveals system bars opens settings without consuming
+		// the touch that already went to gameplay.
+		if (event.actionMasked == MotionEvent.ACTION_DOWN && ::binding.isInitialized &&
+			window.decorView.systemUiVisibility and View.SYSTEM_UI_FLAG_FULLSCREEN == 0)
+			showOverlay()
+		return result
+	}
+
+	override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
+		if (::filterOverlay.isInitialized && filterOverlay.isVisible) {
+			super.dispatchGenericMotionEvent(event)
+			return true
+		}
+		if (::binding.isInitialized && (event.actionMasked == MotionEvent.ACTION_HOVER_ENTER ||
+				event.actionMasked == MotionEvent.ACTION_HOVER_MOVE))
+			overlayVisibilityPolicy.hover()
+		return super.dispatchGenericMotionEvent(event)
+	}
+
 	override fun dispatchKeyEvent(event: KeyEvent): Boolean {
 		trackFilterShortcut(event)
 		if (::filterOverlay.isInitialized && filterOverlay.isVisible) {
@@ -493,13 +515,6 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 			event.keyCode == KeyEvent.KEYCODE_BUTTON_A)
 			return super.dispatchKeyEvent(event)
 		return (::viewModel.isInitialized && viewModel.input.dispatchKeyEvent(event)) || super.dispatchKeyEvent(event)
-	}
-	override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
-		if (::filterOverlay.isInitialized && filterOverlay.isVisible) {
-			super.dispatchGenericMotionEvent(event)
-			return true
-		}
-		return super.dispatchGenericMotionEvent(event)
 	}
 	override fun onGenericMotionEvent(event: MotionEvent) =
 		(::viewModel.isInitialized && viewModel.input.onGenericMotionEvent(event)) || super.onGenericMotionEvent(event)

@@ -10,7 +10,7 @@ class ControllerDisconnectOverlayTest(unittest.TestCase):
         listener = stream.split('private val controllerListener', 1)[1].split('private val uiVisibilityHandler', 1)[0]
         on_start = stream.split('override fun onStart()', 1)[1].split('override fun onSaveInstanceState', 1)[0]
         hide = stream.split('private fun hideOverlay()', 1)[1].split('override fun onWindowFocusChanged', 1)[0]
-        self.assertIn('releaseGamepadControls()', listener)
+        self.assertIn('releaseGamepadControls(deviceId)', listener)
         self.assertIn('cancelFilterShortcut()', listener)
         for section in (listener, on_start):
             self.assertNotIn('showOverlay()', section)
