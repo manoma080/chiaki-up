@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="controller_disconnected">Controller disconnected. Reconnect a controller to continue.</string>
+</resources>

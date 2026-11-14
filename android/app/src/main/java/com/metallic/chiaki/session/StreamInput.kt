@@ -133,6 +133,13 @@ class StreamInput(val context: Context, val preferences: Preferences)
 		controllerStateChangedCallback?.let { it(controllerState) }
 	}
 
+	fun releaseGamepadControls()
+	{
+		keyControllerState = ControllerState()
+		motionControllerState = ControllerState()
+		controllerStateUpdated()
+	}
+
 	fun releaseControls()
 	{
 		keyControllerState = ControllerState()
