@@ -16,16 +16,7 @@ class StreamInput(val context: Context, val preferences: Preferences)
 
 	val controllerState: ControllerState get()
 	{
-		val gamepadState = (keyStates.keys + motionStates.keys).fold(ControllerState()) { all, id ->
-			val key = keyStates[id] ?: ControllerState()
-			val motion = motionStates[id] ?: ControllerState()
-			val device = key or motion
-			// Analog trigger data wins over the same device's digital trigger.
-			if (motion.l2State > 0U) device.l2State = motion.l2State
-			if (motion.r2State > 0U) device.r2State = motion.r2State
-			all or device
-		}
-		val controllerState = sensorControllerState or gamepadState
+		val controllerState = sensorControllerState or keyControllerState or motionControllerState
 
 		val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 		@Suppress("DEPRECATION")
@@ -42,12 +33,19 @@ class StreamInput(val context: Context, val preferences: Preferences)
 			else -> {}
 		}
 
+		// prioritize motion controller's l2 and r2 over key
+		// (some controllers send only key, others both but key earlier than full press)
+		if(motionControllerState.l2State > 0U)
+			controllerState.l2State = motionControllerState.l2State
+		if(motionControllerState.r2State > 0U)
+			controllerState.r2State = motionControllerState.r2State
+
 		return controllerState or touchControllerState
 	}
 
 	private var sensorControllerState = ControllerState() // from Motion Sensors
-	private val keyStates = mutableMapOf<Int, ControllerState>()
-	private val motionStates = mutableMapOf<Int, ControllerState>()
+	private var keyControllerState = ControllerState() // from KeyEvents
+	private var motionControllerState = ControllerState() // from MotionEvents
 	private var filterInputBlocked = false
 	var touchControllerState = ControllerState()
 		set(value)
@@ -118,8 +116,8 @@ class StreamInput(val context: Context, val preferences: Preferences)
 		filterInputBlocked = blocked
 		if (blocked) {
 			sensorControllerState = ControllerState()
-			keyStates.clear()
-			motionStates.clear()
+			keyControllerState = ControllerState()
+			motionControllerState = ControllerState()
 			touchControllerState = ControllerState()
 		}
 	}
@@ -135,17 +133,10 @@ class StreamInput(val context: Context, val preferences: Preferences)
 		controllerStateChangedCallback?.let { it(controllerState) }
 	}
 
-	fun releaseGamepadControls(deviceId: Int)
-	{
-		keyStates.remove(deviceId)
-		motionStates.remove(deviceId)
-		controllerStateUpdated()
-	}
-
 	fun releaseControls()
 	{
-		keyStates.clear()
-		motionStates.clear()
+		keyControllerState = ControllerState()
+		motionControllerState = ControllerState()
 		touchControllerState = ControllerState()
 		controllerStateUpdated()
 	}
@@ -157,17 +148,14 @@ class StreamInput(val context: Context, val preferences: Preferences)
 		if(event.action != KeyEvent.ACTION_DOWN && event.action != KeyEvent.ACTION_UP)
 			return false
 
-		val keyControllerState = keyStates.getOrPut(event.deviceId) { ControllerState() }
 		when(event.keyCode)
 		{
 			KeyEvent.KEYCODE_BUTTON_L2 -> {
 				keyControllerState.l2State = if(event.action == KeyEvent.ACTION_DOWN) UByte.MAX_VALUE else 0U
-				controllerStateUpdated()
 				return true
 			}
 			KeyEvent.KEYCODE_BUTTON_R2 -> {
 				keyControllerState.r2State = if(event.action == KeyEvent.ACTION_DOWN) UByte.MAX_VALUE else 0U
-				controllerStateUpdated()
 				return true
 			}
 		}
@@ -212,7 +200,6 @@ class StreamInput(val context: Context, val preferences: Preferences)
 		if (filterInputBlocked) return false
 		if(event.source and InputDevice.SOURCE_CLASS_JOYSTICK != InputDevice.SOURCE_CLASS_JOYSTICK)
 			return false
-		val motionControllerState = motionStates.getOrPut(event.deviceId) { ControllerState() }
 		fun Float.signedAxis() = (this * Short.MAX_VALUE).toInt().toShort()
 		fun Float.unsignedAxis() = (this * UByte.MAX_VALUE.toFloat()).toUInt().toUByte()
 		motionControllerState.leftX = event.getAxisValue(MotionEvent.AXIS_X).signedAxis()
