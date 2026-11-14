@@ -32,8 +32,10 @@ class StreamResizeLifecycleTest(unittest.TestCase):
         self.assertIn('viewModel.input.releaseControls()', method(activity, 'onWindowFocusChanged', 'hideSystemUI'))
         input_source = (ROOT.parent / 'session/StreamInput.kt').read_text()
         release = method(input_source, 'releaseControls', 'dispatchKeyEvent')
-        for state in ('keyControllerState', 'motionControllerState', 'touchControllerState'):
+        for state in ('touchControllerState',):
             self.assertIn(state + ' = ControllerState()', release)
+        self.assertIn('keyStates.clear()', release)
+        self.assertIn('motionStates.clear()', release)
         self.assertIn('controllerStateUpdated()', release)
 
     def test_viewmodel_clears_actual_session(self):
