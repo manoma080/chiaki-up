@@ -14,15 +14,11 @@ class ResizeOverlayInteractionTest(unittest.TestCase):
         self.assertNotIn('<<<<<<<', source)
         self.assertIn('private var sensorControllerState', source)
         blocked = section(source, 'fun setFilterInputBlocked(', 'fun observe(')
-        for state in ('sensorControllerState', 'touchControllerState'):
+        for state in ('sensorControllerState', 'keyControllerState', 'motionControllerState', 'touchControllerState'):
             self.assertIn(state + ' = ControllerState()', blocked)
-        self.assertIn('keyStates.clear()', blocked)
-        self.assertIn('motionStates.clear()', blocked)
         release = section(source, 'fun releaseControls(', 'fun dispatchKeyEvent(')
-        for state in ('touchControllerState',):
+        for state in ('keyControllerState', 'motionControllerState', 'touchControllerState'):
             self.assertIn(state + ' = ControllerState()', release)
-        self.assertIn('keyStates.clear()', release)
-        self.assertIn('motionStates.clear()', release)
         self.assertIn('if (filterInputBlocked) return false', section(source, 'fun dispatchKeyEvent(', 'fun onGenericMotionEvent('))
         self.assertIn('if (filterInputBlocked) return false', source.split('fun onGenericMotionEvent(', 1)[1])
 

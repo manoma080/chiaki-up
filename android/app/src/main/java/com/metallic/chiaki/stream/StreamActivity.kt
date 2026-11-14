@@ -6,8 +6,6 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.app.AlertDialog
 import android.graphics.Matrix
-import android.hardware.input.InputManager
-
 import android.os.*
 import android.view.*
 import android.widget.EditText
@@ -56,29 +54,6 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 	private lateinit var binding: ActivityStreamBinding
 	private lateinit var filterOverlay: FilterOverlay
 
-	private val controllers = ControllerConnectionTracker()
-	private val inputManager by lazy { getSystemService(INPUT_SERVICE) as InputManager }
-	private val controllerListener = object : InputManager.InputDeviceListener {
-		override fun onInputDeviceAdded(deviceId: Int) = updateController(deviceId)
-		override fun onInputDeviceChanged(deviceId: Int) = updateController(deviceId)
-		override fun onInputDeviceRemoved(deviceId: Int) {
-			if (shortcutDeviceId == deviceId) cancelFilterShortcut()
-			controllers.remove(deviceId)
-			viewModel.input.releaseGamepadControls(deviceId)
-		}
-	}
-
-	private fun updateController(deviceId: Int) {
-		val device = inputManager.getInputDevice(deviceId)
-		if (device != null && (device.supportsSource(InputDevice.SOURCE_GAMEPAD) ||
-			device.supportsSource(InputDevice.SOURCE_JOYSTICK))) {
-			controllers.add(deviceId)
-		} else {
-			controllerListener.onInputDeviceRemoved(deviceId)
-		}
-	}
-
-
 	private val uiVisibilityHandler = Handler()
 	private var shortcutDeviceId: Int? = null
 	private val openFilterShortcut = Runnable {
@@ -126,9 +101,6 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 
 		binding = ActivityStreamBinding.inflate(layoutInflater)
 		setContentView(binding.root)
-		savedInstanceState?.getIntArray("controller_device_ids")?.forEach { controllers.add(it) }
-		controllers.restoreDisconnected(savedInstanceState?.getBoolean("controller_disconnected") == true)
-
 		val modal = FrameLayout(this).apply { visibility = View.GONE; isClickable = true }
 		// The input belongs to a retained ViewModel; this new overlay starts hidden.
 		viewModel.input.setFilterInputBlocked(false)
@@ -224,24 +196,6 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 		}
 	}
 
-	override fun onStart()
-	{
-		super.onStart()
-		if (!::viewModel.isInitialized) return
-		inputManager.registerInputDeviceListener(controllerListener, uiVisibilityHandler)
-		val ids = inputManager.inputDeviceIds.toSet()
-		controllers.deviceIds().filter { it !in ids }.forEach { controllerListener.onInputDeviceRemoved(it) }
-		ids.forEach { updateController(it) }
-
-	}
-
-	override fun onSaveInstanceState(outState: Bundle)
-	{
-		outState.putBoolean("controller_disconnected", controllers.isDisconnected)
-		outState.putIntArray("controller_device_ids", controllers.deviceIds().toIntArray())
-		super.onSaveInstanceState(outState)
-	}
-
 	override fun onResume()
 	{
 		super.onResume()
@@ -264,7 +218,6 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 	override fun onStop()
 	{
 		super.onStop()
-		if (::viewModel.isInitialized) inputManager.unregisterInputDeviceListener(controllerListener)
 		// A configuration change retains the ViewModel and its connection. A truly
 		// backgrounded activity still disconnects, as it did before.
 		if (::viewModel.isInitialized && !isChangingConfigurations)
@@ -289,21 +242,16 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 		hideOverlay()
 	}
 
-	private val overlayVisibilityPolicy by lazy {
-		OverlayVisibilityPolicy(::showOverlay, ::hideOverlay) {
-			uiVisibilityHandler.removeCallbacks(hideSystemUIRunnable)
-			uiVisibilityHandler.postDelayed(hideSystemUIRunnable, HIDE_UI_TIMEOUT_MS)
-		}
-	}
-
 	override fun onSystemUiVisibilityChange(visibility: Int)
 	{
-		overlayVisibilityPolicy.systemUiChanged(visibility and View.SYSTEM_UI_FLAG_FULLSCREEN != 0)
+		if(visibility and View.SYSTEM_UI_FLAG_FULLSCREEN == 0)
+			showOverlay()
+		else
+			hideOverlay()
 	}
 
 	private fun showOverlay()
 	{
-		binding.overlay.animate().cancel()
 		binding.overlay.isVisible = true
 		binding.overlay.animate()
 			.alpha(1.0f)
@@ -480,27 +428,6 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 
 	private fun adjustStreamViewAspect() = adjustSurfaceViewAspect()
 
-	override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-		val result = super.dispatchTouchEvent(event)
-		// A touch after the user reveals system bars opens settings without consuming
-		// the touch that already went to gameplay.
-		if (event.actionMasked == MotionEvent.ACTION_DOWN && ::binding.isInitialized &&
-			window.decorView.systemUiVisibility and View.SYSTEM_UI_FLAG_FULLSCREEN == 0)
-			showOverlay()
-		return result
-	}
-
-	override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
-		if (::filterOverlay.isInitialized && filterOverlay.isVisible) {
-			super.dispatchGenericMotionEvent(event)
-			return true
-		}
-		if (::binding.isInitialized && (event.actionMasked == MotionEvent.ACTION_HOVER_ENTER ||
-				event.actionMasked == MotionEvent.ACTION_HOVER_MOVE))
-			overlayVisibilityPolicy.hover()
-		return super.dispatchGenericMotionEvent(event)
-	}
-
 	override fun dispatchKeyEvent(event: KeyEvent): Boolean {
 		trackFilterShortcut(event)
 		if (::filterOverlay.isInitialized && filterOverlay.isVisible) {
@@ -515,6 +442,13 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 			event.keyCode == KeyEvent.KEYCODE_BUTTON_A)
 			return super.dispatchKeyEvent(event)
 		return (::viewModel.isInitialized && viewModel.input.dispatchKeyEvent(event)) || super.dispatchKeyEvent(event)
+	}
+	override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
+		if (::filterOverlay.isInitialized && filterOverlay.isVisible) {
+			super.dispatchGenericMotionEvent(event)
+			return true
+		}
+		return super.dispatchGenericMotionEvent(event)
 	}
 	override fun onGenericMotionEvent(event: MotionEvent) =
 		(::viewModel.isInitialized && viewModel.input.onGenericMotionEvent(event)) || super.onGenericMotionEvent(event)
