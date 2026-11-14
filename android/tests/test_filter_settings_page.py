@@ -14,6 +14,12 @@ class FilterSettingsPageTest(unittest.TestCase):
         self.assertEqual(link.get(APP + 'fragment'), 'com.gameblabla.chiaki.settings.SettingsVideoFiltersFragment')
         self.assertFalse(any(c.get(APP + 'key') == 'category_video_filter' for c in root.findall('PreferenceCategory')))
 
+    def test_activity_preserves_restored_page_and_title(self):
+        activity = (ROOT / 'java/com/metallic/chiaki/settings/SettingsActivity.kt').read_text()
+        self.assertIn('if(savedInstanceState == null)', activity)
+        self.assertIn('findFragmentById(R.id.settingsFragment) as? TitleFragment', activity)
+        self.assertNotIn('binding.titleTextView.text = rootFragment.getTitle(resources)', activity)
+
     def test_overlay_refreshes_shared_presets_when_shown(self):
         overlay = (ROOT / 'java/com/metallic/chiaki/stream/FilterOverlay.kt').read_text()
         self.assertIn('fun show() {\n        refreshPresets()', overlay)
