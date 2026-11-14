@@ -7,7 +7,7 @@ import android.animation.AnimatorListenerAdapter
 import android.app.AlertDialog
 import android.graphics.Matrix
 import android.hardware.input.InputManager
-import android.widget.TextView
+
 import android.os.*
 import android.view.*
 import android.widget.EditText
@@ -55,7 +55,7 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 	private lateinit var viewModel: StreamViewModel
 	private lateinit var binding: ActivityStreamBinding
 	private lateinit var filterOverlay: FilterOverlay
-	private lateinit var controllerNotice: TextView
+
 	private val controllers = ControllerConnectionTracker()
 	private val inputManager by lazy { getSystemService(INPUT_SERVICE) as InputManager }
 	private val controllerListener = object : InputManager.InputDeviceListener {
@@ -67,7 +67,6 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 			controllers.remove(deviceId)
 			if (!wasDisconnected && controllers.isDisconnected) {
 				viewModel.input.releaseGamepadControls()
-				updateControllerNotice()
 			}
 		}
 	}
@@ -76,19 +75,12 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 		val device = inputManager.getInputDevice(deviceId)
 		if (device != null && (device.supportsSource(InputDevice.SOURCE_GAMEPAD) ||
 			device.supportsSource(InputDevice.SOURCE_JOYSTICK))) {
-			val wasDisconnected = controllers.isDisconnected
 			controllers.add(deviceId)
-			if (wasDisconnected) updateControllerNotice()
 		} else {
 			controllerListener.onInputDeviceRemoved(deviceId)
 		}
 	}
 
-	private fun updateControllerNotice() {
-		if (!::controllerNotice.isInitialized) return
-		controllerNotice.isVisible = controllers.isDisconnected
-		showOverlay()
-	}
 
 	private val uiVisibilityHandler = Handler()
 	private var shortcutDeviceId: Int? = null
@@ -139,15 +131,7 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 		setContentView(binding.root)
 		savedInstanceState?.getIntArray("controller_device_ids")?.forEach { controllers.add(it) }
 		controllers.restoreDisconnected(savedInstanceState?.getBoolean("controller_disconnected") == true)
-		controllerNotice = TextView(this).apply {
-			setText(R.string.controller_disconnected)
-			setTextColor(android.graphics.Color.WHITE)
-			setBackgroundColor(0xbb000000.toInt())
-			setPadding(16, 8, 16, 8)
-			isVisible = controllers.isDisconnected
-		}
-		binding.root.addView(controllerNotice, FrameLayout.LayoutParams(
-			FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.CENTER_HORIZONTAL))
+
 		val modal = FrameLayout(this).apply { visibility = View.GONE; isClickable = true }
 		// The input belongs to a retained ViewModel; this new overlay starts hidden.
 		viewModel.input.setFilterInputBlocked(false)
@@ -251,7 +235,7 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 		val ids = inputManager.inputDeviceIds.toSet()
 		controllers.deviceIds().filter { it !in ids }.forEach { controllerListener.onInputDeviceRemoved(it) }
 		ids.forEach { updateController(it) }
-		if (controllers.isDisconnected) updateControllerNotice()
+
 	}
 
 	override fun onSaveInstanceState(outState: Bundle)
@@ -335,7 +319,7 @@ class StreamActivity : AppCompatActivity(), View.OnSystemUiVisibilityChangeListe
 
 	private fun hideOverlay()
 	{
-		if (controllers.isDisconnected || (::filterOverlay.isInitialized && filterOverlay.isVisible)) return
+		if (::filterOverlay.isInitialized && filterOverlay.isVisible) return
 		binding.overlay.animate()
 			.alpha(0.0f)
 			.setListener(object: AnimatorListenerAdapter()
